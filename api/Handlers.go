@@ -21,9 +21,9 @@ var (
 )
 
 func Init() {
-	key := viper.GetString("openai.apiKey")
+	key := viper.GetString("open-ai-api-key")
 	if key != "" {
-		client = openai.NewClient(viper.GetString("openai.apiKey"))
+		client = openai.NewClient(key)
 	}
 }
 
@@ -83,8 +83,6 @@ func HandleChat(c echo.Context) error {
 		return nil
 	}
 
-	// it is not token streaming, but normal HTTP request
-	// understand if it is for Matteo's model or OpenAI's
 	var response openai.ChatCompletionResponse
 	var err error
 
@@ -105,7 +103,6 @@ func HandleChat(c echo.Context) error {
 }
 
 func HandleCompletions(c echo.Context) error {
-	// get the chat completion request from Echo request body
 	var request openai.CompletionRequest
 	if err := c.Bind(&request); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
@@ -160,8 +157,6 @@ func HandleCompletions(c echo.Context) error {
 		return nil
 	}
 
-	// it is not token streaming, but normal HTTP request
-	// understand if it is for Matteo's model or OpenAI's
 	var response openai.CompletionResponse
 	var err error
 
@@ -182,7 +177,6 @@ func HandleCompletions(c echo.Context) error {
 }
 
 func HandleEmbeddings(c echo.Context) error {
-	// get the chat completion request from Echo request body
 	var request openai.EmbeddingRequest
 	if err := c.Bind(&request); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
@@ -190,8 +184,6 @@ func HandleEmbeddings(c echo.Context) error {
 
 	ctx := context.Background()
 
-	// it is not token streaming, but normal HTTP request
-	// understand if it is for Matteo's model or OpenAI's
 	var response openai.EmbeddingResponse
 	var err error
 

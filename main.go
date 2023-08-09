@@ -35,6 +35,11 @@ func main() {
 	e.Use(middleware.Recover())
 	e.Use(middleware.Static("static"))
 
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+	}))
+
 	// Routes
 	// chat
 	e.POST("/v1/chat/completions", api.HandleChat)
@@ -49,5 +54,10 @@ func main() {
 	e.POST("/embeddings", api.HandleEmbeddings)
 
 	// Start the server
-	e.Logger.Fatal(e.Start(":8080"))
+	port := viper.GetString("port")
+	if port == "" {
+		port = ":8080"
+	}
+
+	e.Logger.Fatal(e.Start(port))
 }
