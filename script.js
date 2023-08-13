@@ -9,19 +9,41 @@ const requestType = document.getElementById('request-type');
 const stream = document.getElementById('stream');
 
 
-startButton.addEventListener("click", start);
+startButton.addEventListener("click", go);
 
-async function start() {
+async function go() {
     let apiUrl = 'http://localhost:8080/'
+    let requestBody = null;
+
+    appendUserMessage(prompt.value)
+
     switch (requestType.value) {
         case 'chat':
             apiUrl += 'v1/chat/completions';
+            requestBody = JSON.stringify({
+                model: model.value,
+                messages: getMessages(),
+                max_tokens: parseInt(maxTokens.value),
+                temperature: parseFloat(temperature.value),
+                stream: stream.checked,
+            });
             break;
         case 'completions':
             apiUrl += 'v1/completions';
+            requestBody = JSON.stringify({
+                model: model.value,
+                prompt: prompt.value,
+                max_tokens: parseInt(maxTokens.value),
+                temperature: parseFloat(temperature.value),
+                stream: stream.checked,
+            });
             break;
         case 'embeddings':
             apiUrl += 'v1/embeddings';
+            requestBody = JSON.stringify({
+                input: prompt.value,
+                model: model.value,
+            });
             break;
     }
 
@@ -29,16 +51,12 @@ async function start() {
         'Content-Type': 'application/json',
     };
 
-    const requestBody = JSON.stringify({
-        prompt: prompt.value,
-        max_tokens: parseInt(maxTokens.value),
-        model: model.value,
-        temperature: parseFloat(temperature.value),
-        stream: stream.checked,
-    });
+    const response = await fetchResponse(apiUrl, headers, requestBody)
 
-    appendUserMessage(prompt.value)
+    appendBotMessage(response)
+}
 
+async function fetchResponse(apiUrl, headers, requestBody) {
     let response;
     try {
         response = await fetch(apiUrl, {
@@ -46,30 +64,25 @@ async function start() {
             headers: headers,
             body: requestBody,
         });
+
+        if (!response.ok || response.status !== 200) {
+            const errorMessage = await response.text();
+            appendError(errorMessage.replaceAll(/"/g, ''));
+        }
     } catch (error) {
-        appendError(error);
-        return;
+        debugger;
+        appendError(error.toString());
     }
 
-    if (!response.ok) {
-        const errorMessage = await response.json();
-        appendError(errorMessage["message"]);
-        return;
-    }
+    return response
+}
 
-    const e = document.createElement("div")
-    e.setAttribute("class", "message")
-    const timestamp = document.createElement("div")
-    const timestempText = document.createElement("span")
-    timestempText.textContent = new Date().toLocaleTimeString();
-    timestamp.append(timestempText)
-    const message = document.createElement("div")
-    message.setAttribute("class", "bot-message")
-    e.append(message)
-    timestamp.setAttribute("class", "timestamp")
-    timestamp.textContent = new Date().toLocaleTimeString();
-    e.append(timestamp)
-    resultDiv.append(e)
+async function appendBotMessage(response) {
+    const b = makeMessageContainer();
+    const message = document.createElement("div");
+    message.setAttribute("class", "bot-message");
+    b.append(message);
+    resultDiv.append(b);
 
     if (stream.checked) {
         const reader = response.body.getReader();
@@ -81,6 +94,7 @@ async function start() {
             if (done) {
                 break;
             }
+
             // decode the Uint8Array into a string
             let chunk = new TextDecoder("utf-8").decode(value);
 
@@ -96,30 +110,91 @@ async function start() {
 }
 
 function appendBotMessageFromChunks(e, chunks) {
+    debugger;
+    let chunk = "";
     for (let i = 0; i < chunks.length; i++) {
         if (chunks[i] === "") {
             continue;
         }
         if (i === chunks.length - 1) {
-            chunk = chunks[i]
+            chunk = chunks[i];
         } else {
-            chunk = chunks[i] + "}"
+            chunk = chunks[i] + "}";
         }
+
         const json = JSON.parse(chunk);
-        if (json["choices"]) {
-            e.textContent += json["choices"][0]["text"];
+
+        let t = "";
+
+        switch (json["object"]) {
+            case "chat.completion.chunk":
+                t = json["choices"][0]["delta"]["content"];
+                if (t) {
+                    e.textContent += t;
+                }
+                break;
+            case "text_completion":
+                t = json["choices"][0]["text"];
+                if (t) {
+                    e.textContent += t;
+                }
+                break;
+            case "embedding": // TODO: CONTROL THIS
+                t = json["choices"][0]["embedding"];
+                if (t) {
+                    e.textContent += t;
+                }
+                break;
         }
     }
 }
 
+function getMessages() {
+    let messages = [
+        {"role": "system", "content": "You are a helpful assistant."}
+    ]
+
+    // serialize resultDiv
+    const inputs = resultDiv.querySelectorAll(".message")
+    inputs.forEach(input => {
+        const userMessage = input.querySelector(".user-message")
+        if (userMessage) {
+            const message = {"role": "user", "content": userMessage.textContent}
+            messages.push(message)
+            return;
+        }
+
+        const botMessage = input.querySelector(".bot-message")
+        if (botMessage) {
+            const message = {"role": "assistant", "content": botMessage.textContent}
+            messages.push(message)
+        }
+    })
+
+    return messages
+}
+
 function appendError(error) {
-    const e = document.createElement("div")
-    e.setAttribute("class", "error")
-    e.textContent = error.toString();
+    const e = makeMessageContainer()
+    const errorMessage = document.createElement("div")
+    errorMessage.setAttribute("class", "error")
+    errorMessage.textContent = error.toString();
+    e.append(errorMessage)
+
     resultDiv.append(e)
 }
 
 function appendUserMessage(text) {
+    const e = makeMessageContainer()
+    const message = document.createElement("div")
+    message.setAttribute("class", "user-message")
+    e.append(message)
+    message.textContent = text;
+
+    resultDiv.append(e)
+}
+
+function makeMessageContainer() {
     const e = document.createElement("div")
     e.setAttribute("class", "message")
     const timestamp = document.createElement("div")
@@ -128,10 +203,6 @@ function appendUserMessage(text) {
     timestempText.textContent = new Date().toLocaleTimeString();
     timestamp.append(timestempText)
     e.append(timestamp)
-    const message = document.createElement("div")
-    message.setAttribute("class", "user-message")
-    e.append(message)
-    resultDiv.append(e)
 
-    message.textContent = text;
+    return e
 }

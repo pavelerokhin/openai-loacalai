@@ -50,18 +50,12 @@ select {
     width: 100%;
 }
 
-
-
 #wrapper {
     display: flex;
     flex-direction: row;
     justify-content: space-around;
     align-items: flex-start;
     height: 100vh;
-}
-
-#wrapper #completion-form {
-
 }
 
 /* Center the form on the page */
@@ -80,7 +74,8 @@ select {
     background-color: #fff;
     border: 1px solid #ccc;
     border-radius: 3px;
-    height: 100%;
+    display: flex;
+    flex-direction: column-reverse;
     margin: 0 20px;
     padding: 20px;
     white-space: pre-wrap;
@@ -89,7 +84,9 @@ select {
 
 .error {
     color: red;
-    font-weight: bold;
+    border: 1px solid red;
+    margin: 5px 0;
+    padding: 5px;
 }
 
 .message {
@@ -111,7 +108,7 @@ select {
 
 
 .timestamp {
-    color: green;
+    color: lightgrey;
     display: flex;
     justify-content: center;
     padding: 0 10px;

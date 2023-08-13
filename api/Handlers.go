@@ -38,7 +38,6 @@ func HandleChat(c echo.Context) error {
 
 	if request.Stream {
 		c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-		c.Response().WriteHeader(http.StatusOK)
 		enc := json.NewEncoder(c.Response())
 
 		if request.Model == LLMatteo {
@@ -52,12 +51,11 @@ func HandleChat(c echo.Context) error {
 						break
 					}
 					if err := enc.Encode(resp); err != nil {
-						c.Logger().Error(err)
+						return c.JSON(http.StatusInternalServerError, err.Error())
 					}
 					c.Response().Flush()
 				case err := <-errors:
-					c.Logger().Error(err)
-					break
+					return c.JSON(http.StatusInternalServerError, err.Error())
 				}
 			}
 		} else {
@@ -74,7 +72,7 @@ func HandleChat(c echo.Context) error {
 					break
 				}
 				if err := enc.Encode(resp); err != nil {
-					c.Logger().Error(err)
+					return c.JSON(http.StatusInternalServerError, err.Error())
 				}
 				c.Response().Flush()
 			}
@@ -112,10 +110,9 @@ func HandleCompletions(c echo.Context) error {
 
 	if request.Stream {
 		c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-		c.Response().WriteHeader(http.StatusOK)
 		enc := json.NewEncoder(c.Response())
 
-		if request.Model == LLMatteo {
+		if request.Model == LLMatteo { // local model
 			response := make(chan openai.CompletionResponse)
 			errors := make(chan error)
 			go local.CreateCompletionStreaming(ctx, request, response, errors)
@@ -126,15 +123,14 @@ func HandleCompletions(c echo.Context) error {
 						break
 					}
 					if err := enc.Encode(resp); err != nil {
-						c.Logger().Error(err)
+						return c.JSON(http.StatusInternalServerError, err.Error())
 					}
 					c.Response().Flush()
 				case err := <-errors:
-					c.Logger().Error(err)
-					break
+					return c.JSON(http.StatusInternalServerError, err.Error())
 				}
 			}
-		} else {
+		} else { // openAI model
 			if client == nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "OpenAI client is not initialized")
 			}
@@ -148,7 +144,7 @@ func HandleCompletions(c echo.Context) error {
 					break
 				}
 				if err := enc.Encode(resp); err != nil {
-					c.Logger().Error(err)
+					return c.JSON(http.StatusInternalServerError, err.Error())
 				}
 				c.Response().Flush()
 			}
